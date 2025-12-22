@@ -3,7 +3,9 @@
  */
 import { useState, useEffect, useMemo } from 'react';
 import { authApi } from '@/services/authService';
+import { courseApi } from '@/services/scheduleService';
 import type { User, RegisterData } from '@/services/authService';
+import type { Course } from '@/services/scheduleService';
 import { useToast } from '@/hooks/useToast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +20,16 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
     Plus,
     Pencil,
     Loader2,
@@ -28,6 +40,7 @@ import {
     GraduationCap,
     Shield,
     Users as UsersIcon,
+    BookOpen,
 } from 'lucide-react';
 
 type UserRole = 'student' | 'mentor' | 'admin';
@@ -38,7 +51,9 @@ interface UserFormData {
     full_name: string;
     role: UserRole;
     student_id: string;
+    major: string;
     group: string;
+    course_ids: string[];
 }
 
 const initialFormData: UserFormData = {
@@ -47,7 +62,19 @@ const initialFormData: UserFormData = {
     full_name: '',
     role: 'student',
     student_id: '',
+    major: '',
     group: '',
+    course_ids: [],
+};
+
+// Majors and their groups
+const majorGroups: Record<string, string[]> = {
+    'Computer Science': ['CS-101', 'CS-102', 'CS-103', 'CS-104'],
+    'Information Technology': ['IT-101', 'IT-102', 'IT-103'],
+    'Software Engineering': ['SE-101', 'SE-102'],
+    'Data Science': ['DS-101', 'DS-102'],
+    'Cybersecurity': ['CY-101', 'CY-102'],
+    'Artificial Intelligence': ['AI-101', 'AI-102'],
 };
 
 const roleIcons: Record<UserRole, React.ComponentType<{ className?: string }>> = {
@@ -65,23 +92,51 @@ const roleColors: Record<UserRole, string> = {
 export default function Users() {
     const { toast } = useToast();
     const [users, setUsers] = useState<User[]>([]);
+    const [courses, setCourses] = useState<Course[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [showForm, setShowForm] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [formData, setFormData] = useState<UserFormData>(initialFormData);
+    const [userToToggle, setUserToToggle] = useState<User | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [roleFilter, setRoleFilter] = useState<string>('all');
     const [isSaving, setIsSaving] = useState(false);
 
-    // Fetch users
+    // Generate next student ID based on existing IDs
+    const generateNextStudentId = useMemo(() => {
+        const currentYear = new Date().getFullYear();
+        const yearPrefix = `${currentYear}/`;
+        
+        // Find all student IDs that match the current year format
+        const currentYearIds = users
+            .filter(u => u.role === 'student' && u.student_id?.startsWith(yearPrefix))
+            .map(u => {
+                const numPart = u.student_id?.split('/')[1];
+                return numPart ? parseInt(numPart, 10) : 0;
+            })
+            .filter(n => !isNaN(n));
+        
+        // Get the max number and add 1
+        const maxNum = currentYearIds.length > 0 ? Math.max(...currentYearIds) : 0;
+        const nextNum = maxNum + 1;
+        
+        // Format with leading zeros (e.g., 00001, 00012, 00123)
+        return `${yearPrefix}${nextNum.toString().padStart(5, '0')}`;
+    }, [users]);
+
+    // Fetch users and courses
     const fetchUsers = async () => {
         try {
             setIsLoading(true);
             setError('');
             const role = roleFilter !== 'all' ? roleFilter : undefined;
-            const data = await authApi.getAllUsers(0, 100, role);
-            setUsers(data);
+            const [usersData, coursesRes] = await Promise.all([
+                authApi.getAllUsers(0, 100, role),
+                courseApi.getAll(),
+            ]);
+            setUsers(usersData);
+            setCourses(coursesRes.data);
         } catch (err) {
             setError('Failed to load users');
             console.error(err);
@@ -90,9 +145,21 @@ export default function Users() {
         }
     };
 
+    // Get courses taught by a mentor
+    const getMentorCourses = (mentorId: string): Course[] => {
+        return courses.filter(course => course.mentor_ids?.includes(mentorId));
+    };
+
     useEffect(() => {
         fetchUsers();
     }, [roleFilter]);
+
+    // Auto-fill student ID when opening form for new student
+    useEffect(() => {
+        if (showForm && !editingUser && formData.role === 'student' && !formData.student_id) {
+            setFormData(prev => ({ ...prev, student_id: generateNextStudentId }));
+        }
+    }, [showForm, editingUser, formData.role, generateNextStudentId]);
 
     // Filter users by search query
     const filteredUsers = useMemo(() => {
@@ -106,11 +173,38 @@ export default function Users() {
         );
     }, [users, searchQuery]);
 
+    // Validate password
+    const validatePassword = (password: string): string | null => {
+        if (password.length < 8) {
+            return 'Password must be at least 8 characters';
+        }
+        if (!/[A-Z]/.test(password)) {
+            return 'Password must contain at least one uppercase letter';
+        }
+        if (!/[a-z]/.test(password)) {
+            return 'Password must contain at least one lowercase letter';
+        }
+        if (!/\d/.test(password)) {
+            return 'Password must contain at least one digit';
+        }
+        return null;
+    };
+
     // Handle form submit
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSaving(true);
         setError('');
+
+        // Validate password for new users
+        if (!editingUser) {
+            const passwordError = validatePassword(formData.password);
+            if (passwordError) {
+                setError(passwordError);
+                setIsSaving(false);
+                return;
+            }
+        }
 
         try {
             if (editingUser) {
@@ -123,9 +217,44 @@ export default function Users() {
                     if (formData.student_id) {
                         updateData.student_id = formData.student_id;
                     }
-                    updateData.group = formData.group || undefined;
+                    // Combine major and group
+                    if (formData.major && formData.group) {
+                        updateData.group = `${formData.major} - ${formData.group}`;
+                    } else if (formData.major) {
+                        updateData.group = formData.major;
+                    }
                 }
                 await authApi.updateUser(editingUser.id, updateData);
+                
+                // If mentor, update course assignments
+                if (formData.role === 'mentor') {
+                    const currentCourseIds = courses
+                        .filter(c => c.mentor_ids?.includes(editingUser.id))
+                        .map(c => c.id);
+                    
+                    // Remove from courses no longer selected
+                    for (const courseId of currentCourseIds) {
+                        if (!formData.course_ids.includes(courseId)) {
+                            try {
+                                await courseApi.removeMentor(courseId, editingUser.id);
+                            } catch (err) {
+                                console.error(`Failed to remove mentor from course ${courseId}:`, err);
+                            }
+                        }
+                    }
+                    
+                    // Add to newly selected courses
+                    for (const courseId of formData.course_ids) {
+                        if (!currentCourseIds.includes(courseId)) {
+                            try {
+                                await courseApi.assignMentor(courseId, editingUser.id);
+                            } catch (err) {
+                                console.error(`Failed to assign mentor to course ${courseId}:`, err);
+                            }
+                        }
+                    }
+                }
+                
                 toast({
                     title: 'User Updated',
                     description: `${formData.full_name} has been updated successfully.`,
@@ -142,11 +271,32 @@ export default function Users() {
                     if (formData.student_id) {
                         registerData.student_id = formData.student_id;
                     }
-                    if (formData.group) {
-                        registerData.group = formData.group;
+                    // Combine major and group
+                    if (formData.major && formData.group) {
+                        registerData.group = `${formData.major} - ${formData.group}`;
+                    } else if (formData.major) {
+                        registerData.group = formData.major;
                     }
                 }
                 await authApi.register(registerData);
+                
+                // If mentor, assign courses after creation
+                if (formData.role === 'mentor' && formData.course_ids.length > 0) {
+                    // Get the newly created user
+                    const allUsers = await authApi.getAllUsers(0, 100, 'mentor');
+                    const newMentor = allUsers.find(u => u.email === formData.email);
+                    if (newMentor) {
+                        // Assign mentor to selected courses
+                        for (const courseId of formData.course_ids) {
+                            try {
+                                await courseApi.assignMentor(courseId, newMentor.id);
+                            } catch (err) {
+                                console.error(`Failed to assign mentor to course ${courseId}:`, err);
+                            }
+                        }
+                    }
+                }
+                
                 toast({
                     title: 'User Created',
                     description: `${formData.full_name} has been created successfully.`,
@@ -170,31 +320,52 @@ export default function Users() {
     // Handle edit
     const handleEdit = (user: User) => {
         setEditingUser(user);
+        // Try to extract major from group (format: "Major - Group")
+        let major = '';
+        let group = user.group || '';
+        if (user.group && user.group.includes(' - ')) {
+            const parts = user.group.split(' - ');
+            major = parts[0];
+            group = parts[1] || '';
+        }
+        // Get mentor's assigned courses
+        const mentorCourseIds = user.role === 'mentor' 
+            ? courses.filter(c => c.mentor_ids?.includes(user.id)).map(c => c.id)
+            : [];
         setFormData({
             email: user.email,
             password: '',
             full_name: user.full_name,
             role: user.role,
             student_id: user.student_id || '',
-            group: user.group || '',
+            major: major,
+            group: group,
+            course_ids: mentorCourseIds,
         });
         setShowForm(true);
     };
 
-    // Handle activate/deactivate
-    const handleToggleActive = async (user: User) => {
+    // Handle activate/deactivate - show confirmation dialog
+    const handleToggleActive = (user: User) => {
+        setUserToToggle(user);
+    };
+
+    // Confirm toggle active
+    const confirmToggleActive = async () => {
+        if (!userToToggle) return;
+
         try {
-            if (user.is_active) {
-                await authApi.deactivateUser(user.id);
+            if (userToToggle.is_active) {
+                await authApi.deactivateUser(userToToggle.id);
                 toast({
                     title: 'User Deactivated',
-                    description: `${user.full_name} has been deactivated.`,
+                    description: `${userToToggle.full_name} has been deactivated.`,
                 });
             } else {
-                await authApi.activateUser(user.id);
+                await authApi.activateUser(userToToggle.id);
                 toast({
                     title: 'User Activated',
-                    description: `${user.full_name} has been activated.`,
+                    description: `${userToToggle.full_name} has been activated.`,
                 });
             }
             fetchUsers();
@@ -205,6 +376,8 @@ export default function Users() {
                 description: message,
                 variant: 'destructive',
             });
+        } finally {
+            setUserToToggle(null);
         }
     };
 
@@ -318,10 +491,13 @@ export default function Users() {
                                         type="password"
                                         value={formData.password}
                                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                        placeholder="Min 8 chars, uppercase, lowercase, digit"
+                                        placeholder="e.g., Password1"
                                         required
                                         minLength={8}
                                     />
+                                    <p className="text-xs text-muted-foreground">
+                                        Min 8 chars with uppercase, lowercase, and digit
+                                    </p>
                                 </div>
                             )}
 
@@ -330,7 +506,14 @@ export default function Users() {
                                     <Label htmlFor="role">Role *</Label>
                                     <Select
                                         value={formData.role}
-                                        onValueChange={(value: UserRole) => setFormData({ ...formData, role: value })}
+                                        onValueChange={(value: UserRole) => {
+                                            const newData = { ...formData, role: value };
+                                            // Auto-fill student ID when switching to student role
+                                            if (value === 'student' && !editingUser && !formData.student_id) {
+                                                newData.student_id = generateNextStudentId;
+                                            }
+                                            setFormData(newData);
+                                        }}
                                     >
                                         <SelectTrigger>
                                             <SelectValue />
@@ -349,22 +532,113 @@ export default function Users() {
                                         <Input
                                             id="student_id"
                                             value={formData.student_id}
-                                            onChange={(e) => setFormData({ ...formData, student_id: e.target.value })}
-                                            placeholder="e.g., STU001"
+                                            readOnly
+                                            disabled
+                                            className="bg-muted"
                                         />
+                                        <p className="text-xs text-muted-foreground">
+                                            Auto-generated (YEAR/NUMBER)
+                                        </p>
                                     </div>
                                 )}
                             </div>
 
                             {formData.role === 'student' && (
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="major">Major</Label>
+                                        <Select
+                                            value={formData.major}
+                                            onValueChange={(value) => {
+                                                setFormData({ ...formData, major: value, group: '' });
+                                            }}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select major" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {Object.keys(majorGroups).map((major) => (
+                                                    <SelectItem key={major} value={major}>
+                                                        {major}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="group">Group</Label>
+                                        <Select
+                                            value={formData.group}
+                                            onValueChange={(value) => setFormData({ ...formData, group: value })}
+                                            disabled={!formData.major}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder={formData.major ? "Select group" : "Select major first"} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {formData.major && majorGroups[formData.major]?.map((group) => (
+                                                    <SelectItem key={group} value={group}>
+                                                        {group}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                            )}
+
+                            {formData.role === 'mentor' && (
                                 <div className="space-y-2">
-                                    <Label htmlFor="group">Group</Label>
-                                    <Input
-                                        id="group"
-                                        value={formData.group}
-                                        onChange={(e) => setFormData({ ...formData, group: e.target.value })}
-                                        placeholder="e.g., Group A, CS-101"
-                                    />
+                                    <Label>Courses to Teach</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Select courses this mentor will teach
+                                    </p>
+                                    {courses.length === 0 ? (
+                                        <p className="text-sm text-yellow-600 bg-yellow-50 dark:bg-yellow-950 p-3 rounded-md">
+                                            No courses available. Create courses first.
+                                        </p>
+                                    ) : (
+                                        <div className="flex flex-wrap gap-2 mt-2">
+                                            {courses.map((course) => {
+                                                const isSelected = formData.course_ids.includes(course.id);
+                                                return (
+                                                    <button
+                                                        key={course.id}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (isSelected) {
+                                                                setFormData({
+                                                                    ...formData,
+                                                                    course_ids: formData.course_ids.filter(id => id !== course.id)
+                                                                });
+                                                            } else {
+                                                                setFormData({
+                                                                    ...formData,
+                                                                    course_ids: [...formData.course_ids, course.id]
+                                                                });
+                                                            }
+                                                        }}
+                                                        className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${isSelected
+                                                            ? 'bg-primary text-primary-foreground border-primary'
+                                                            : 'bg-background hover:bg-accent border-input'
+                                                            }`}
+                                                    >
+                                                        {isSelected ? (
+                                                            <X className="h-4 w-4" />
+                                                        ) : (
+                                                            <BookOpen className="h-4 w-4" />
+                                                        )}
+                                                        <span>{course.code} - {course.name}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                    {formData.course_ids.length > 0 && (
+                                        <p className="text-sm text-muted-foreground mt-2">
+                                            {formData.course_ids.length} course(s) selected
+                                        </p>
+                                    )}
                                 </div>
                             )}
 
@@ -418,9 +692,48 @@ export default function Users() {
                                                     </p>
                                                 )}
                                                 {user.role === 'student' && user.group && (
-                                                    <p className="text-sm text-muted-foreground">
-                                                        Group: {user.group}
-                                                    </p>
+                                                    <>
+                                                        {user.group.includes(' - ') ? (
+                                                            <>
+                                                                <p className="text-sm text-muted-foreground">
+                                                                    Major: {user.group.split(' - ')[0]}
+                                                                </p>
+                                                                <p className="text-sm text-muted-foreground">
+                                                                    Group: {user.group.split(' - ')[1]}
+                                                                </p>
+                                                            </>
+                                                        ) : (
+                                                            <p className="text-sm text-muted-foreground">
+                                                                Major: {user.group}
+                                                            </p>
+                                                        )}
+                                                    </>
+                                                )}
+                                                {user.role === 'mentor' && (
+                                                    <>
+                                                        {(() => {
+                                                            const mentorCourses = getMentorCourses(user.id);
+                                                            return (
+                                                                <>
+                                                                    <p className="text-sm text-muted-foreground">
+                                                                        Courses: {mentorCourses.length}
+                                                                    </p>
+                                                                    {mentorCourses.length > 0 && (
+                                                                        <div className="flex flex-wrap gap-1 mt-1">
+                                                                            {mentorCourses.map(course => (
+                                                                                <span
+                                                                                    key={course.id}
+                                                                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
+                                                                                >
+                                                                                    {course.code}
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                            );
+                                                        })()}
+                                                    </>
                                                 )}
                                             </div>
                                         </div>
@@ -502,6 +815,35 @@ export default function Users() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Confirmation Dialog */}
+            <AlertDialog open={!!userToToggle} onOpenChange={(open) => !open && setUserToToggle(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            {userToToggle?.is_active ? 'Deactivate User' : 'Activate User'}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to {userToToggle?.is_active ? 'deactivate' : 'activate'}{' '}
+                            <span className="font-semibold">{userToToggle?.full_name}</span>?
+                            {userToToggle?.is_active && (
+                                <span className="block mt-2 text-destructive">
+                                    This user will no longer be able to access the system.
+                                </span>
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={confirmToggleActive}
+                            className={userToToggle?.is_active ? 'bg-destructive hover:bg-destructive/90' : ''}
+                        >
+                            {userToToggle?.is_active ? 'Deactivate' : 'Activate'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

@@ -1,8 +1,9 @@
 "use client";
-import { useState} from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from "motion/react";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
-// Fixed for Vercel deployment
+
 export interface NavItem {
     name: string;
     link: string;
