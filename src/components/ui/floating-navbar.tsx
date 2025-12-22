@@ -2,7 +2,7 @@
 import { useState} from "react";
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from "motion/react";
 import { cn } from "@/lib/utils";
-
+// Fixed for Vercel deployment
 export interface NavItem {
     name: string;
     link: string;
