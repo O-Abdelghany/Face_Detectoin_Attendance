@@ -240,7 +240,7 @@ export default function Login() {
                 <div className="p-2.5 bg-primary rounded-xl shadow-lg shadow-primary/25">
                   <Scan className="w-7 h-7 text-primary-foreground" />
                 </div>
-                <span className="text-2xl font-bold text-foreground">AttendanceAI</span>
+                <span className="text-2xl font-bold text-foreground">AIdentify</span>
               </div>
             </div>
 
