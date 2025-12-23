@@ -381,7 +381,7 @@ export default function Landing() {
           <span className="text-primary text-sm font-medium tracking-wider uppercase mb-4 block">Showcase</span>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 text-balance">Trusted Across Industries</h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            From classrooms to corporate offices, AttendanceAI adapts to your needs
+            From classrooms to corporate offices, AIdentify adapts to your needs
           </p>
         </motion.div>
 
@@ -482,7 +482,7 @@ export default function Landing() {
                 Ready to Transform Your Attendance?
               </h2>
               <p className="text-muted-foreground max-w-2xl mx-auto">
-                Join thousands of institutions already using AttendanceAI.
+                Join thousands of institutions already using AIdentify.
               </p>
             </div>
           </motion.div>
@@ -496,7 +496,7 @@ export default function Landing() {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <Scan className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="text-lg font-semibold">AttendanceAI</span>
+            <span className="text-lg font-semibold">AIdentify</span>
           </Link>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
             <Link to="/privacy" className="hover:text-foreground transition-colors">
@@ -509,7 +509,7 @@ export default function Landing() {
               Contact
             </Link>
           </div>
-          <div className="text-sm text-muted-foreground">© 2025 AttendanceAI. All rights reserved.</div>
+          <div className="text-sm text-muted-foreground">© 2025 AIdentify. All rights reserved.</div>
         </div>
       </footer>
     </main>
