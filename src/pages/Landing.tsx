@@ -6,6 +6,7 @@ import { motion } from "motion/react";
 import { Link } from "react-router-dom";
 import {
   Scan,
+  ArrowRight,
   Shield,
   Clock,
   Users,
@@ -15,6 +16,7 @@ import {
   Building2,
   GraduationCap,
   Briefcase,
+  Play,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LiveAttendanceFeed } from "@/components/LiveAttendanceFeed";
