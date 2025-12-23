@@ -1,0 +1,20 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Rounded square background (matches the landing page design) -->
+  <rect x="2" y="2" width="28" height="28" rx="6" ry="6" fill="#000000"/>
+  
+  <!-- Scan icon (matching Lucide's Scan icon) -->
+  <!-- Top-left corner -->
+  <path d="M8 12V8C8 7.44772 8.44772 7 9 7H13" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round"/>
+  
+  <!-- Top-right corner -->
+  <path d="M24 12V8C24 7.44772 23.5523 7 23 7H19" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round"/>
+  
+  <!-- Bottom-left corner -->
+  <path d="M8 20V24C8 24.5523 8.44772 25 9 25H13" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round"/>
+  
+  <!-- Bottom-right corner -->
+  <path d="M24 20V24C24 24.5523 23.5523 25 23 25H19" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round"/>
+  
+  <!-- Center scanning line -->
+  <path d="M10 16H22" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round"/>
+</svg>
