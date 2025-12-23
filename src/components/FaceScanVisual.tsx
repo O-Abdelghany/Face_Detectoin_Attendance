@@ -130,7 +130,7 @@ export function FaceScanVisual() {
                         <Scan className="w-6 h-6 text-primary-foreground" />
                     </div>
                     <div>
-                        <h1 className="text-xl font-bold text-foreground">AttendanceAI</h1>
+                        <h1 className="text-xl font-bold text-foreground">AIdentify</h1>
                         <p className="text-sm text-muted-foreground">Smart Attendance System</p>
                     </div>
                 </div>
