@@ -102,7 +102,7 @@ export function exportToPDF(
         </tbody>
       </table>
       <div class="footer">
-        Generated on ${new Date().toLocaleString()} | AttendanceAI System
+        Generated on ${new Date().toLocaleString()} | AIdentify System
       </div>
     </body>
     </html>
