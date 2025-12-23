@@ -210,7 +210,7 @@ export default function Sidebar() {
           <div className="h-8 w-8 rounded-lg bg-sidebar-primary flex items-center justify-center">
             <ScanFace className="h-5 w-5 text-sidebar-primary-foreground" />
           </div>
-          <span className="font-bold">AttendanceAI</span>
+          <span className="font-bold">AIdentify</span>
         </div>
         <Button
           variant="ghost"
