@@ -169,7 +169,7 @@ export default function Landing() {
               <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
                 <Scan className="w-4 h-4 text-primary-foreground" />
               </div>
-              <span className="text-lg font-semibold text-white hidden sm:block">AttendanceAI</span>
+              <span className="text-lg font-semibold text-white hidden sm:block">AIdentify</span>
             </Link>
           }
           actionButtons={
